@@ -1,0 +1,61 @@
+version: "3.7"
+
+volumes:
+  postgres_data:
+
+networks:
+  backend:
+  frontend:
+
+services:
+  postgres:
+    image: postgres:10-alpine
+    ports:
+    - published: ${EJ3_PGPORT:-5432}
+      target: 5432
+    volumes:
+    - type: volume
+      source: postgres_data
+      target: /var/lib/postgresql/data
+    networks:
+    - backend
+    environment:
+      POSTGRES_PASSWORD: 3x4mpl3P455w0rd
+
+  backend_test: &backend
+    image: vovimayhem/ejercicio3-backend:development
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    volumes:
+    - type: bind
+      source: ./backend
+      target: /usr/src
+
+    stdin_open: true
+    tty: true
+
+    entrypoint: /usr/src/bin/dev-entrypoint.sh
+    networks:
+    - backend
+    depends_on:
+    - postgres
+    environment: &backend_env
+      RACK_ENV: test
+      RAILS_ENV: test
+      RAILS_LOG_TO_STDOUT: "true"
+      DATABASE_URL: postgres://postgres:3x4mpl3P455w0rd@postgres:5432/demo_test
+
+  backend_web:
+    <<: *backend
+    command: ["rails", "server", "-b", "0.0.0.0", "-p", "3000"]
+    entrypoint: /usr/src/bin/dev-entrypoint.sh
+    ports:
+    - published: ${EJ3_BACKEND_WEB_PORT:-3000}
+      target: 3000
+    environment:
+      <<: *backend_env
+      RACK_ENV: development
+      RAILS_ENV: development
+      DATABASE_URL: postgres://postgres:3x4mpl3P455w0rd@postgres:5432/demo_development
